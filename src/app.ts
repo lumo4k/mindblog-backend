@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 
 import { errorHandler } from './middlewares/error-handler';
+import { notFoundHandler } from './middlewares/not-found';
 import { router } from './routes/index';
 
 export const app = express();
@@ -18,6 +19,8 @@ app.use(
 
 app.use(express.json());
 
-app.use(router);
+app.use('/api', router);
+
+app.use(notFoundHandler);
 
 app.use(errorHandler);
