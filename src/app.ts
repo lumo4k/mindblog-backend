@@ -1,9 +1,13 @@
 import cors from 'cors';
 import express from 'express';
+import helmet from 'helmet';
 
+import { errorHandler } from './middlewares/error-handler';
 import { router } from './routes/index';
 
 export const app = express();
+
+app.use(helmet());
 
 app.use(
     cors({
@@ -15,3 +19,5 @@ app.use(
 app.use(express.json());
 
 app.use(router);
+
+app.use(errorHandler);
