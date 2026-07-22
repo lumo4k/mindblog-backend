@@ -1,0 +1,152 @@
+import type { RequestHandler } from 'express';
+
+import { AppError } from '../../errors/app-error';
+import {
+    createArticle,
+    getArticleCoverImage,
+    getRecentArticles,
+} from './article.service';
+
+function parseTags(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        if (!value.every((tag) => typeof tag === 'string')) {
+            throw new AppError('As tags enviadas são inválidas', 400);
+        }
+
+        return value;
+    }
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return [];
+    }
+
+    try {
+        const parsedValue: unknown = JSON.parse(value);
+
+        if (
+            !Array.isArray(parsedValue) ||
+            !parsedValue.every((tag) => typeof tag === 'string')
+        ) {
+            throw new AppError(
+                'As tags devem ser enviadas como uma lista de textos',
+                400,
+            );
+        }
+
+        return parsedValue;
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+
+        throw new AppError(
+            'O formato das tags enviadas é inválido',
+            400,
+        );
+    }
+}
+
+export const createArticleController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const authorId = Number(response.locals.userId);
+
+        if (!Number.isInteger(authorId) || authorId <= 0) {
+            throw new Error(
+                'ID do usuário não foi definido pelo middleware de autenticação',
+            );
+        }
+
+        const {
+            title,
+            summary,
+            content,
+            categoryId,
+            tags,
+        } = request.body ?? {};
+
+        const article = await createArticle({
+            authorId,
+
+            categoryId: Number(categoryId),
+
+            title:
+                typeof title === 'string'
+                    ? title
+                    : '',
+
+            summary:
+                typeof summary === 'string'
+                    ? summary
+                    : '',
+
+            content:
+                typeof content === 'string'
+                    ? content
+                    : '',
+
+            tags: parseTags(tags),
+
+            coverImage: request.file?.buffer,
+            coverImageMimeType: request.file?.mimetype,
+        });
+
+        return response.status(201).json({
+            message: 'Artigo criado com sucesso',
+            article,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getArticleCoverImageController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+
+        const { image, mimeType } =
+            await getArticleCoverImage(articleId);
+
+        const imageBuffer = Buffer.from(image);
+
+        response.setHeader('Content-Type', mimeType);
+        response.setHeader(
+            'Content-Length',
+            imageBuffer.length,
+        );
+
+        response.setHeader(
+            'Cache-Control',
+            'public, max-age=3600',
+        );
+
+        return response
+            .status(200)
+            .send(imageBuffer);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getRecentArticlesController: RequestHandler = async (
+    _request,
+    response,
+    next,
+) => {
+    try {
+        const articles = await getRecentArticles();
+
+        return response.status(200).json({
+            articles,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
