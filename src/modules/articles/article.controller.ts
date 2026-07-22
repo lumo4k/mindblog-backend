@@ -9,6 +9,8 @@ import {
     unlikeArticle,
     getMostLikedArticles,
     getArticleDetails,
+    updateArticle,
+    deleteArticle,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -218,6 +220,74 @@ export const getArticleDetailsController: RequestHandler = async (
         return response.status(200).json({
             article,
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateArticleController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+        const authorId = Number(response.locals.userId);
+
+        const {
+            title,
+            summary,
+            content,
+            categoryId,
+            tags,
+        } = request.body;
+
+        const article = await updateArticle({
+            articleId,
+            authorId,
+
+            title:
+                typeof title === 'string'
+                    ? title
+                    : '',
+
+            summary:
+                typeof summary === 'string'
+                    ? summary
+                    : '',
+
+            content:
+                typeof content === 'string'
+                    ? content
+                    : '',
+
+            categoryId: Number(categoryId),
+            tags: parseTags(tags),
+
+            coverImage: request.file?.buffer,
+            coverImageMimeType: request.file?.mimetype,
+        });
+
+        return response.status(200).json({
+            article,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteArticleController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+        const authorId = Number(response.locals.userId);
+
+        await deleteArticle(articleId, authorId);
+
+        return response.status(204).send();
     } catch (error) {
         next(error);
     }

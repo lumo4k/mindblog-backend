@@ -12,6 +12,18 @@ interface CreateArticleInput {
     coverImageMimeType?: string;
 }
 
+interface UpdateArticleInput {
+    articleId: number;
+    authorId: number;
+    title: string;
+    summary: string;
+    content: string;
+    categoryId: number;
+    tags: string[];
+    coverImage?: Buffer;
+    coverImageMimeType?: string;
+}
+
 interface PreparedTag {
     name: string;
     normalizedName: string;
@@ -597,4 +609,272 @@ export async function getArticleDetails(articleId: number) {
         createdAt: article.createdAt,
         updatedAt: article.updatedAt,
     };
+}
+
+export async function updateArticle({
+    articleId,
+    authorId,
+    title,
+    summary,
+    content,
+    categoryId,
+    tags,
+    coverImage,
+    coverImageMimeType,
+}: UpdateArticleInput) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    if (!Number.isInteger(authorId) || authorId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+        throw new AppError('Categoria inválida', 400);
+    }
+
+    const normalizedTitle = title.trim();
+    const normalizedSummary = summary.trim();
+    const normalizedContent = content.trim();
+
+    if (!normalizedTitle) {
+        throw new AppError('O título é obrigatório', 400);
+    }
+
+    if (normalizedTitle.length > 180) {
+        throw new AppError(
+            'O título deve possuir no máximo 180 caracteres',
+            400,
+        );
+    }
+
+    if (!normalizedSummary) {
+        throw new AppError('O resumo é obrigatório', 400);
+    }
+
+    if (normalizedSummary.length > 120) {
+        throw new AppError(
+            'O resumo deve possuir no máximo 120 caracteres',
+            400,
+        );
+    }
+
+    if (!normalizedContent) {
+        throw new AppError('O conteúdo é obrigatório', 400);
+    }
+
+    if (normalizedContent.length > 8000) {
+        throw new AppError(
+            'O conteúdo deve possuir no máximo 8000 caracteres',
+            400,
+        );
+    }
+
+    const preparedTags = prepareTags(tags);
+
+    return prisma.$transaction(async (transaction) => {
+        const existingArticle = await transaction.article.findUnique({
+            where: {
+                id: articleId,
+            },
+            select: {
+                id: true,
+                authorId: true,
+            },
+        });
+
+        if (!existingArticle) {
+            throw new AppError('Artigo não encontrado', 404);
+        }
+
+        if (existingArticle.authorId !== authorId) {
+            throw new AppError(
+                'Você não possui permissão para editar este artigo',
+                403,
+            );
+        }
+
+        const category = await transaction.category.findFirst({
+            where: {
+                id: categoryId,
+                isActive: true,
+            },
+            select: {
+                id: true,
+            },
+        });
+
+        if (!category) {
+            throw new AppError('Categoria não encontrada ou inativa', 400);
+        }
+
+        await transaction.article.update({
+            where: {
+                id: articleId,
+            },
+
+            data: {
+                title: normalizedTitle,
+                summary: normalizedSummary,
+                content: normalizedContent,
+                categoryId,
+
+                ...(coverImage && coverImageMimeType
+                    ? {
+                        coverImage: Uint8Array.from(coverImage),
+                        coverImageMimeType,
+                    }
+                    : {}),
+            },
+        });
+
+        await transaction.articleTag.deleteMany({
+            where: {
+                articleId,
+            },
+        });
+
+        for (const [position, tag] of preparedTags.entries()) {
+            const savedTag = await transaction.tag.upsert({
+                where: {
+                    normalizedName: tag.normalizedName,
+                },
+
+                update: {
+                    name: tag.name,
+                },
+
+                create: {
+                    name: tag.name,
+                    normalizedName: tag.normalizedName,
+                },
+            });
+
+            await transaction.articleTag.create({
+                data: {
+                    articleId,
+                    tagId: savedTag.id,
+                    position,
+                },
+            });
+        }
+
+        const updatedArticle = await transaction.article.findUnique({
+            where: {
+                id: articleId,
+            },
+
+            select: {
+                id: true,
+                title: true,
+                summary: true,
+                content: true,
+                viewCount: true,
+                coverImageMimeType: true,
+                createdAt: true,
+                updatedAt: true,
+
+                author: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                    },
+                },
+
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+
+                tags: {
+                    orderBy: {
+                        position: 'asc',
+                    },
+
+                    select: {
+                        tag: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+
+                _count: {
+                    select: {
+                        likes: true,
+                    },
+                },
+            },
+        });
+
+        if (!updatedArticle) {
+            throw new AppError('Artigo não encontrado', 404);
+        }
+
+        return {
+            id: updatedArticle.id,
+            title: updatedArticle.title,
+            summary: updatedArticle.summary,
+            content: updatedArticle.content,
+            viewCount: updatedArticle.viewCount,
+            likeCount: updatedArticle._count.likes,
+
+            coverImageUrl: updatedArticle.coverImageMimeType
+                ? `/api/articles/${updatedArticle.id}/cover-image`
+                : null,
+
+            author: updatedArticle.author,
+            category: updatedArticle.category,
+
+            tags: updatedArticle.tags.map(({ tag }) => tag),
+
+            createdAt: updatedArticle.createdAt,
+            updatedAt: updatedArticle.updatedAt,
+        };
+    });
+}
+
+export async function deleteArticle(
+    articleId: number,
+    authorId: number,
+) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    if (!Number.isInteger(authorId) || authorId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const article = await prisma.article.findUnique({
+        where: {
+            id: articleId,
+        },
+        select: {
+            id: true,
+            authorId: true,
+        },
+    });
+
+    if (!article) {
+        throw new AppError('Artigo não encontrado', 404);
+    }
+
+    if (article.authorId !== authorId) {
+        throw new AppError(
+            'Você não possui permissão para excluir este artigo',
+            403,
+        );
+    }
+
+    await prisma.article.delete({
+        where: {
+            id: articleId,
+        },
+    });
 }
