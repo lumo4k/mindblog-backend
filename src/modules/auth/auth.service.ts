@@ -66,3 +66,25 @@ export async function loginUser({ email, password }: LoginInput) {
         },
     };
 }
+
+export async function getAuthenticatedUser(userId: number) {
+    const user = await prisma.user.findUnique({
+        where: {
+            id: userId,
+        },
+        select: {
+            id: true,
+            fullName: true,
+            email: true,
+            bio: true,
+            createdAt: true,
+            updatedAt: true,
+        },
+    });
+
+    if (!user) {
+        throw new AppError('Sessão inválida', 401);
+    }
+
+    return user;
+}
