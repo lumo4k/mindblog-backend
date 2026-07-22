@@ -29,6 +29,18 @@ interface PreparedTag {
     normalizedName: string;
 }
 
+interface CreateArticleCommentInput {
+    articleId: number;
+    userId: number;
+    content: string;
+}
+
+interface UpdateArticleCommentInput {
+    commentId: number;
+    userId: number;
+    content: string;
+}
+
 function calculateReadingTime(content: string) {
     const wordCount = content
         .trim()
@@ -875,6 +887,429 @@ export async function deleteArticle(
     await prisma.article.delete({
         where: {
             id: articleId,
+        },
+    });
+}
+
+export async function createArticleComment({
+    articleId,
+    userId,
+    content,
+}: CreateArticleCommentInput) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const normalizedContent = content.trim();
+
+    if (!normalizedContent) {
+        throw new AppError('O comentário não pode estar vazio', 400);
+    }
+
+    if (normalizedContent.length > 1000) {
+        throw new AppError(
+            'O comentário deve possuir no máximo 1000 caracteres',
+            400,
+        );
+    }
+
+    const article = await prisma.article.findUnique({
+        where: {
+            id: articleId,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!article) {
+        throw new AppError('Artigo não encontrado', 404);
+    }
+
+    const comment = await prisma.articleComment.create({
+        data: {
+            articleId,
+            userId,
+            content: normalizedContent,
+        },
+
+        select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    profileImageMimeType: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    likes: true,
+                },
+            },
+        },
+    });
+
+    return {
+        id: comment.id,
+        content: comment.content,
+
+        user: {
+            id: comment.user.id,
+            fullName: comment.user.fullName,
+
+            profileImageUrl: comment.user.profileImageMimeType
+                ? `/api/users/${comment.user.id}/profile-image`
+                : null,
+        },
+
+        likeCount: comment._count.likes,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+    };
+}
+
+export async function getArticleComments(articleId: number) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    const article = await prisma.article.findUnique({
+        where: {
+            id: articleId,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!article) {
+        throw new AppError('Artigo não encontrado', 404);
+    }
+
+    const comments = await prisma.articleComment.findMany({
+        where: {
+            articleId,
+        },
+
+        orderBy: {
+            createdAt: 'desc',
+        },
+
+        select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    profileImageMimeType: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    likes: true,
+                },
+            },
+        },
+    });
+
+    return comments.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+
+        user: {
+            id: comment.user.id,
+            fullName: comment.user.fullName,
+
+            profileImageUrl: comment.user.profileImageMimeType
+                ? `/api/users/${comment.user.id}/profile-image`
+                : null,
+        },
+
+        likeCount: comment._count.likes,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+    }));
+}
+
+export async function likeComment(
+    userId: number,
+    commentId: number,
+) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    if (!Number.isInteger(commentId) || commentId <= 0) {
+        throw new AppError('Comentário inválido', 400);
+    }
+
+    const comment = await prisma.articleComment.findUnique({
+        where: {
+            id: commentId,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!comment) {
+        throw new AppError('Comentário não encontrado', 404);
+    }
+
+    const existingLike = await prisma.commentLike.findUnique({
+        where: {
+            userId_commentId: {
+                userId,
+                commentId,
+            },
+        },
+        select: {
+            userId: true,
+        },
+    });
+
+    if (existingLike) {
+        throw new AppError(
+            'Você já curtiu este comentário',
+            409,
+        );
+    }
+
+    await prisma.commentLike.create({
+        data: {
+            userId,
+            commentId,
+        },
+    });
+
+    const likeCount = await prisma.commentLike.count({
+        where: {
+            commentId,
+        },
+    });
+
+    return {
+        commentId,
+        liked: true,
+        likeCount,
+    };
+}
+
+export async function unlikeComment(
+    userId: number,
+    commentId: number,
+) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    if (!Number.isInteger(commentId) || commentId <= 0) {
+        throw new AppError('Comentário inválido', 400);
+    }
+
+    const comment = await prisma.articleComment.findUnique({
+        where: {
+            id: commentId,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!comment) {
+        throw new AppError('Comentário não encontrado', 404);
+    }
+
+    const existingLike = await prisma.commentLike.findUnique({
+        where: {
+            userId_commentId: {
+                userId,
+                commentId,
+            },
+        },
+        select: {
+            userId: true,
+        },
+    });
+
+    if (!existingLike) {
+        throw new AppError(
+            'Você ainda não curtiu este comentário',
+            404,
+        );
+    }
+
+    await prisma.commentLike.delete({
+        where: {
+            userId_commentId: {
+                userId,
+                commentId,
+            },
+        },
+    });
+
+    const likeCount = await prisma.commentLike.count({
+        where: {
+            commentId,
+        },
+    });
+
+    return {
+        commentId,
+        liked: false,
+        likeCount,
+    };
+}
+
+export async function updateArticleComment({
+    commentId,
+    userId,
+    content,
+}: UpdateArticleCommentInput) {
+    if (!Number.isInteger(commentId) || commentId <= 0) {
+        throw new AppError('Comentário inválido', 400);
+    }
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const normalizedContent = content.trim();
+
+    if (!normalizedContent) {
+        throw new AppError('O comentário não pode estar vazio', 400);
+    }
+
+    if (normalizedContent.length > 1000) {
+        throw new AppError(
+            'O comentário deve possuir no máximo 1000 caracteres',
+            400,
+        );
+    }
+
+    const existingComment =
+        await prisma.articleComment.findUnique({
+            where: {
+                id: commentId,
+            },
+            select: {
+                id: true,
+                userId: true,
+            },
+        });
+
+    if (!existingComment) {
+        throw new AppError('Comentário não encontrado', 404);
+    }
+
+    if (existingComment.userId !== userId) {
+        throw new AppError(
+            'Você não possui permissão para editar este comentário',
+            403,
+        );
+    }
+
+    const comment = await prisma.articleComment.update({
+        where: {
+            id: commentId,
+        },
+
+        data: {
+            content: normalizedContent,
+        },
+
+        select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    profileImageMimeType: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    likes: true,
+                },
+            },
+        },
+    });
+
+    return {
+        id: comment.id,
+        content: comment.content,
+
+        user: {
+            id: comment.user.id,
+            fullName: comment.user.fullName,
+
+            profileImageUrl: comment.user.profileImageMimeType
+                ? `/api/users/${comment.user.id}/profile-image`
+                : null,
+        },
+
+        likeCount: comment._count.likes,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+    };
+}
+
+export async function deleteArticleComment(
+    commentId: number,
+    userId: number,
+) {
+    if (!Number.isInteger(commentId) || commentId <= 0) {
+        throw new AppError('Comentário inválido', 400);
+    }
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const comment = await prisma.articleComment.findUnique({
+        where: {
+            id: commentId,
+        },
+        select: {
+            id: true,
+            userId: true,
+        },
+    });
+
+    if (!comment) {
+        throw new AppError('Comentário não encontrado', 404);
+    }
+
+    if (comment.userId !== userId) {
+        throw new AppError(
+            'Você não possui permissão para excluir este comentário',
+            403,
+        );
+    }
+
+    await prisma.articleComment.delete({
+        where: {
+            id: commentId,
         },
     });
 }

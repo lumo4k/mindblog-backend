@@ -11,6 +11,12 @@ import {
     getArticleDetails,
     updateArticle,
     deleteArticle,
+    createArticleComment,
+    getArticleComments,
+    likeComment,
+    unlikeComment,
+    updateArticleComment,
+    deleteArticleComment,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -286,6 +292,131 @@ export const deleteArticleController: RequestHandler = async (
         const authorId = Number(response.locals.userId);
 
         await deleteArticle(articleId, authorId);
+
+        return response.status(204).send();
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createArticleCommentController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+        const userId = Number(response.locals.userId);
+
+        const content =
+            typeof request.body.content === 'string'
+                ? request.body.content
+                : '';
+
+        const comment = await createArticleComment({
+            articleId,
+            userId,
+            content,
+        });
+
+        return response.status(201).json({
+            comment,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getArticleCommentsController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+
+        const comments = await getArticleComments(articleId);
+
+        return response.status(200).json({
+            comments,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const likeCommentController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+        const commentId = Number(request.params.commentId);
+
+        const result = await likeComment(userId, commentId);
+
+        return response.status(201).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const unlikeCommentController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+        const commentId = Number(request.params.commentId);
+
+        const result = await unlikeComment(userId, commentId);
+
+        return response.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateArticleCommentController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const commentId = Number(request.params.commentId);
+        const userId = Number(response.locals.userId);
+
+        const content =
+            typeof request.body.content === 'string'
+                ? request.body.content
+                : '';
+
+        const comment = await updateArticleComment({
+            commentId,
+            userId,
+            content,
+        });
+
+        return response.status(200).json({
+            comment,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteArticleCommentController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const commentId = Number(request.params.commentId);
+        const userId = Number(response.locals.userId);
+
+        await deleteArticleComment(commentId, userId);
 
         return response.status(204).send();
     } catch (error) {

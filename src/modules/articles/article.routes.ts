@@ -12,6 +12,12 @@ import {
     unlikeArticleController,
     updateArticleController,
     deleteArticleController,
+    createArticleCommentController,
+    getArticleCommentsController,
+    likeCommentController,
+    unlikeCommentController,
+    updateArticleCommentController,
+    deleteArticleCommentController,
 } from './article.controller';
 
 export const articleRouter = Router();
@@ -31,6 +37,41 @@ articleRouter.get(
 articleRouter.get(
     '/most-liked',
     getMostLikedArticlesController,
+);
+
+articleRouter.post(
+    '/:articleId/comments',
+    authenticate,
+    createArticleCommentController,
+);
+
+articleRouter.get(
+    '/:articleId/comments',
+    getArticleCommentsController,
+);
+
+articleRouter.post(
+    '/comments/:commentId/likes',
+    authenticate,
+    likeCommentController,
+);
+
+articleRouter.delete(
+    '/comments/:commentId/likes',
+    authenticate,
+    unlikeCommentController,
+);
+
+articleRouter.patch(
+    '/comments/:commentId',
+    authenticate,
+    updateArticleCommentController,
+);
+
+articleRouter.delete(
+    '/comments/:commentId',
+    authenticate,
+    deleteArticleCommentController,
 );
 
 articleRouter.post(
@@ -67,3 +108,4 @@ articleRouter.get(
     '/:articleId',
     getArticleDetailsController,
 );
+
