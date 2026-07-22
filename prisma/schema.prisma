@@ -6,8 +6,25 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "mysql"
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  fullName     String @map("full_name") @db.VarChar(120)
+  email        String @unique @db.VarChar(191)
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  bio                  String? @db.Text
+  profileImage         Bytes?  @map("profile_image") @db.LongBlob
+  profileImageMimeType String? @map("profile_image_mime_type") @db.VarChar(100)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
 }
