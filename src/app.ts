@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import { errorHandler } from './middlewares/error-handler';
 import { notFoundHandler } from './middlewares/not-found';
@@ -18,6 +19,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/api', router);
 
