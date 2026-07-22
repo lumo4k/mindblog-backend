@@ -5,6 +5,9 @@ import {
     createArticle,
     getArticleCoverImage,
     getRecentArticles,
+    likeArticle,
+    unlikeArticle,
+    getMostLikedArticles,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -142,6 +145,56 @@ export const getRecentArticlesController: RequestHandler = async (
 ) => {
     try {
         const articles = await getRecentArticles();
+
+        return response.status(200).json({
+            articles,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const likeArticleController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+        const articleId = Number(request.params.articleId);
+
+        const result = await likeArticle(userId, articleId);
+
+        return response.status(201).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const unlikeArticleController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+        const articleId = Number(request.params.articleId);
+
+        const result = await unlikeArticle(userId, articleId);
+
+        return response.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMostLikedArticlesController: RequestHandler = async (
+    _request,
+    response,
+    next,
+) => {
+    try {
+        const articles = await getMostLikedArticles();
 
         return response.status(200).json({
             articles,

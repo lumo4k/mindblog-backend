@@ -316,3 +316,166 @@ export async function getRecentArticles() {
         },
     });
 }
+
+export async function likeArticle(
+    userId: number,
+    articleId: number,
+) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    const article = await prisma.article.findUnique({
+        where: {
+            id: articleId,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!article) {
+        throw new AppError('Artigo não encontrado', 404);
+    }
+
+    const existingLike = await prisma.articleLike.findUnique({
+        where: {
+            userId_articleId: {
+                userId,
+                articleId,
+            },
+        },
+        select: {
+            userId: true,
+        },
+    });
+
+    if (existingLike) {
+        throw new AppError('Você já curtiu este artigo', 409);
+    }
+
+    await prisma.articleLike.create({
+        data: {
+            userId,
+            articleId,
+        },
+    });
+
+    const likeCount = await prisma.articleLike.count({
+        where: {
+            articleId,
+        },
+    });
+
+    return {
+        articleId,
+        liked: true,
+        likeCount,
+    };
+}
+
+export async function unlikeArticle(
+    userId: number,
+    articleId: number,
+) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    const existingLike = await prisma.articleLike.findUnique({
+        where: {
+            userId_articleId: {
+                userId,
+                articleId,
+            },
+        },
+        select: {
+            userId: true,
+        },
+    });
+
+    if (!existingLike) {
+        throw new AppError('Você ainda não curtiu este artigo', 404);
+    }
+
+    await prisma.articleLike.delete({
+        where: {
+            userId_articleId: {
+                userId,
+                articleId,
+            },
+        },
+    });
+
+    const likeCount = await prisma.articleLike.count({
+        where: {
+            articleId,
+        },
+    });
+
+    return {
+        articleId,
+        liked: false,
+        likeCount,
+    };
+}
+
+export async function getMostLikedArticles() {
+    const articles = await prisma.article.findMany({
+        take: 6,
+
+        where: {
+            likes: {
+                some: {},
+            },
+        },
+
+        orderBy: [
+            {
+                likes: {
+                    _count: 'desc',
+                },
+            },
+            {
+                createdAt: 'desc',
+            },
+        ],
+
+        select: {
+            id: true,
+            title: true,
+            summary: true,
+            createdAt: true,
+
+            author: {
+                select: {
+                    id: true,
+                    fullName: true,
+                },
+            },
+
+            category: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    likes: true,
+                },
+            },
+        },
+    });
+
+    return articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        summary: article.summary,
+        createdAt: article.createdAt,
+        author: article.author,
+        category: article.category,
+        likeCount: article._count.likes,
+    }));
+}

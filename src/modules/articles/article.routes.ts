@@ -6,6 +6,9 @@ import {
     createArticleController,
     getArticleCoverImageController,
     getRecentArticlesController,
+    likeArticleController,
+    unlikeArticleController,
+    getMostLikedArticlesController,
 } from './article.controller';
 
 export const articleRouter = Router();
@@ -25,4 +28,21 @@ articleRouter.get(
 articleRouter.get(
     '/recent',
     getRecentArticlesController,
+);
+
+articleRouter.post(
+    '/:articleId/likes',
+    authenticate,
+    likeArticleController,
+);
+
+articleRouter.delete(
+    '/:articleId/likes',
+    authenticate,
+    unlikeArticleController,
+);
+
+articleRouter.get(
+    '/most-liked',
+    getMostLikedArticlesController,
 );
