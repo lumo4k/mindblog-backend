@@ -586,6 +586,7 @@ export async function getArticleDetails(articleId: number) {
             _count: {
                 select: {
                     likes: true,
+                    comments: true,
                 },
             },
         },
@@ -598,6 +599,7 @@ export async function getArticleDetails(articleId: number) {
         content: article.content,
         viewCount: article.viewCount,
         likeCount: article._count.likes,
+        commentCount: article._count.comments,
         readingTimeMinutes: calculateReadingTime(article.content),
 
         coverImageUrl: article.coverImageMimeType
