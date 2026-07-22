@@ -8,6 +8,7 @@ import {
     likeArticle,
     unlikeArticle,
     getMostLikedArticles,
+    getArticleDetails,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -198,6 +199,24 @@ export const getMostLikedArticlesController: RequestHandler = async (
 
         return response.status(200).json({
             articles,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getArticleDetailsController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+
+        const article = await getArticleDetails(articleId);
+
+        return response.status(200).json({
+            article,
         });
     } catch (error) {
         next(error);

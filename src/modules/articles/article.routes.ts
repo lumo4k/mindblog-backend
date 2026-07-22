@@ -9,6 +9,7 @@ import {
     likeArticleController,
     unlikeArticleController,
     getMostLikedArticlesController,
+    getArticleDetailsController,
 } from './article.controller';
 
 export const articleRouter = Router();
@@ -45,4 +46,9 @@ articleRouter.delete(
 articleRouter.get(
     '/most-liked',
     getMostLikedArticlesController,
+);
+
+articleRouter.get(
+    '/:articleId',
+    getArticleDetailsController,
 );
