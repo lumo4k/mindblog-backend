@@ -3,7 +3,8 @@ import type { RequestHandler } from 'express';
 import {
     createUser,
     getUserProfileImage,
-    updateUserProfile
+    updateUserProfile,
+    getMyDashboardMetrics,
 } from './user.service';
 
 export const createUserController: RequestHandler = async (
@@ -98,6 +99,24 @@ export const getUserProfileImageController: RequestHandler = async (
         );
 
         return response.status(200).send(imageBuffer);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMyDashboardMetricsController: RequestHandler = async (
+    _request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+
+        const metrics = await getMyDashboardMetrics(userId);
+
+        return response.status(200).json({
+            metrics,
+        });
     } catch (error) {
         next(error);
     }

@@ -6,6 +6,7 @@ import {
     createUserController,
     getUserProfileImageController,
     updateUserProfileController,
+    getMyDashboardMetricsController,
 } from './user.controller';
 import { getMyArticlesController } from '../articles/article.controller';
 
@@ -24,6 +25,12 @@ userRouter.get(
     '/me/articles',
     authenticate,
     getMyArticlesController,
+);
+
+userRouter.get(
+    '/me/dashboard',
+    authenticate,
+    getMyDashboardMetricsController,
 );
 
 userRouter.get(

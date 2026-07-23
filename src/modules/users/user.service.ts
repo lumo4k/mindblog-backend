@@ -191,3 +191,74 @@ export async function getUserProfileImage(userId: number) {
         mimeType: user.profileImageMimeType,
     };
 }
+
+function calculateReadingTime(content: string) {
+    const wordCount = content
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+    return Math.max(1, Math.ceil(wordCount / 200));
+}
+
+export async function getMyDashboardMetrics(userId: number) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const [
+        articles,
+        likeCount,
+        engagementCount,
+    ] = await prisma.$transaction([
+        prisma.article.findMany({
+            where: {
+                authorId: userId,
+            },
+
+            select: {
+                content: true,
+            },
+        }),
+
+        prisma.articleLike.count({
+            where: {
+                article: {
+                    is: {
+                        authorId: userId,
+                    },
+                },
+            },
+        }),
+
+        prisma.articleComment.count({
+            where: {
+                article: {
+                    is: {
+                        authorId: userId,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    const articleCount = articles.length;
+
+    const totalReadingTime = articles.reduce(
+        (total, article) =>
+            total + calculateReadingTime(article.content),
+        0,
+    );
+
+    const averageReadingTimeMinutes =
+        articleCount === 0
+            ? 0
+            : Math.round(totalReadingTime / articleCount);
+
+    return {
+        articleCount,
+        engagementCount,
+        likeCount,
+        averageReadingTimeMinutes,
+    };
+}
