@@ -7,6 +7,7 @@ import {
     getUserProfileImageController,
     updateUserProfileController,
     getMyDashboardMetricsController,
+    getMyRecentActivityController,
 } from './user.controller';
 import { getMyArticlesController } from '../articles/article.controller';
 
@@ -31,6 +32,12 @@ userRouter.get(
     '/me/dashboard',
     authenticate,
     getMyDashboardMetricsController,
+);
+
+userRouter.get(
+    '/me/recent-activity',
+    authenticate,
+    getMyRecentActivityController,
 );
 
 userRouter.get(

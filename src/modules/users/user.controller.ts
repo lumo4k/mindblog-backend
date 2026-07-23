@@ -5,6 +5,7 @@ import {
     getUserProfileImage,
     updateUserProfile,
     getMyDashboardMetrics,
+    getMyRecentActivity,
 } from './user.service';
 
 export const createUserController: RequestHandler = async (
@@ -116,6 +117,24 @@ export const getMyDashboardMetricsController: RequestHandler = async (
 
         return response.status(200).json({
             metrics,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMyRecentActivityController: RequestHandler = async (
+    _request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+
+        const activities = await getMyRecentActivity(userId);
+
+        return response.status(200).json({
+            activities,
         });
     } catch (error) {
         next(error);

@@ -262,3 +262,63 @@ export async function getMyDashboardMetrics(userId: number) {
         averageReadingTimeMinutes,
     };
 }
+
+export async function getMyRecentActivity(userId: number) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const comments = await prisma.articleComment.findMany({
+        where: {
+            article: {
+                is: {
+                    authorId: userId,
+                },
+            },
+        },
+
+        take: 5,
+
+        orderBy: {
+            createdAt: 'desc',
+        },
+
+        select: {
+            id: true,
+            content: true,
+            createdAt: true,
+
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    profileImageMimeType: true,
+                },
+            },
+
+            article: {
+                select: {
+                    id: true,
+                    title: true,
+                },
+            },
+        },
+    });
+
+    return comments.map((comment) => ({
+        commentId: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+
+        user: {
+            id: comment.user.id,
+            fullName: comment.user.fullName,
+
+            profileImageUrl: comment.user.profileImageMimeType
+                ? `/api/users/${comment.user.id}/profile-image`
+                : null,
+        },
+
+        article: comment.article,
+    }));
+}

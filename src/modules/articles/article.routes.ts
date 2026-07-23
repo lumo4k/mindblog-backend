@@ -18,9 +18,17 @@ import {
     unlikeCommentController,
     updateArticleCommentController,
     deleteArticleCommentController,
+    getArticlesController,
+    getArticleForEditController,
 } from './article.controller';
+import { optionalAuthenticate } from '../../middlewares/optional-authenticate';
 
 export const articleRouter = Router();
+
+articleRouter.get(
+    '/',
+    getArticlesController,
+);
 
 articleRouter.post(
     '/',
@@ -41,7 +49,7 @@ articleRouter.get(
 
 articleRouter.post(
     '/:articleId/comments',
-    authenticate,
+    optionalAuthenticate,
     createArticleCommentController,
 );
 
@@ -91,6 +99,12 @@ articleRouter.get(
     getArticleCoverImageController,
 );
 
+articleRouter.get(
+    '/:articleId/edit',
+    authenticate,
+    getArticleForEditController,
+);
+
 articleRouter.patch(
     '/:articleId',
     authenticate,
@@ -106,6 +120,7 @@ articleRouter.delete(
 
 articleRouter.get(
     '/:articleId',
+    optionalAuthenticate,
     getArticleDetailsController,
 );
 

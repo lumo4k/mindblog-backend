@@ -513,7 +513,10 @@ export async function getMostLikedArticles() {
     }));
 }
 
-export async function getArticleDetails(articleId: number) {
+export async function getArticleDetails(
+    articleId: number,
+    userId?: number,
+) {
     if (!Number.isInteger(articleId) || articleId <= 0) {
         throw new AppError('Artigo inválido', 400);
     }
@@ -530,6 +533,11 @@ export async function getArticleDetails(articleId: number) {
     if (!existingArticle) {
         throw new AppError('Artigo não encontrado', 404);
     }
+
+    const authenticatedUserId =
+        Number.isInteger(userId) && Number(userId) > 0
+            ? Number(userId)
+            : -1;
 
     const article = await prisma.article.update({
         where: {
@@ -589,6 +597,16 @@ export async function getArticleDetails(articleId: number) {
                     comments: true,
                 },
             },
+
+            likes: {
+                where: {
+                    userId: authenticatedUserId,
+                },
+                take: 1,
+                select: {
+                    userId: true,
+                },
+            },
         },
     });
 
@@ -600,6 +618,7 @@ export async function getArticleDetails(articleId: number) {
         viewCount: article.viewCount,
         likeCount: article._count.likes,
         commentCount: article._count.comments,
+        likedByMe: article.likes.length > 0,
         readingTimeMinutes: calculateReadingTime(article.content),
 
         coverImageUrl: article.coverImageMimeType
@@ -980,7 +999,10 @@ export async function createArticleComment({
     };
 }
 
-export async function getArticleComments(articleId: number) {
+export async function getArticleComments(
+    articleId: number,
+    userId?: number,
+) {
     if (!Number.isInteger(articleId) || articleId <= 0) {
         throw new AppError('Artigo inválido', 400);
     }
@@ -997,6 +1019,11 @@ export async function getArticleComments(articleId: number) {
     if (!article) {
         throw new AppError('Artigo não encontrado', 404);
     }
+
+    const authenticatedUserId =
+        Number.isInteger(userId) && Number(userId) > 0
+            ? Number(userId)
+            : -1;
 
     const comments = await prisma.articleComment.findMany({
         where: {
@@ -1026,6 +1053,16 @@ export async function getArticleComments(articleId: number) {
                     likes: true,
                 },
             },
+
+            likes: {
+                where: {
+                    userId: authenticatedUserId,
+                },
+                take: 1,
+                select: {
+                    userId: true,
+                },
+            },
         },
     });
 
@@ -1043,6 +1080,7 @@ export async function getArticleComments(articleId: number) {
         },
 
         likeCount: comment._count.likes,
+        likedByMe: comment.likes.length > 0,
         createdAt: comment.createdAt,
         updatedAt: comment.updatedAt,
     }));
@@ -1371,4 +1409,164 @@ export async function getMyArticles(userId: number) {
         createdAt: article.createdAt,
         updatedAt: article.updatedAt,
     }));
+}
+
+export async function getArticles(page: number) {
+    if (!Number.isInteger(page) || page <= 0) {
+        throw new AppError('Página inválida', 400);
+    }
+
+    const pageSize = 9;
+    const skip = (page - 1) * pageSize;
+
+    const [totalItems, articles] = await prisma.$transaction([
+        prisma.article.count(),
+
+        prisma.article.findMany({
+            skip,
+            take: pageSize,
+
+            orderBy: {
+                createdAt: 'desc',
+            },
+
+            select: {
+                id: true,
+                title: true,
+                summary: true,
+                coverImageMimeType: true,
+                createdAt: true,
+
+                author: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                    },
+                },
+
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+
+                _count: {
+                    select: {
+                        likes: true,
+                        comments: true,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    return {
+        articles: articles.map((article) => ({
+            id: article.id,
+            title: article.title,
+            summary: article.summary,
+
+            coverImageUrl: article.coverImageMimeType
+                ? `/api/articles/${article.id}/cover-image`
+                : null,
+
+            author: article.author,
+            category: article.category,
+
+            likeCount: article._count.likes,
+            commentCount: article._count.comments,
+
+            createdAt: article.createdAt,
+        })),
+
+        pagination: {
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+        },
+    };
+}
+
+export async function getArticleForEdit(
+    articleId: number,
+    authorId: number,
+) {
+    if (!Number.isInteger(articleId) || articleId <= 0) {
+        throw new AppError('Artigo inválido', 400);
+    }
+
+    if (!Number.isInteger(authorId) || authorId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const article = await prisma.article.findUnique({
+        where: {
+            id: articleId,
+        },
+
+        select: {
+            id: true,
+            title: true,
+            summary: true,
+            content: true,
+            authorId: true,
+            coverImageMimeType: true,
+            createdAt: true,
+            updatedAt: true,
+
+            category: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+
+            tags: {
+                orderBy: {
+                    position: 'asc',
+                },
+
+                select: {
+                    tag: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    if (!article) {
+        throw new AppError('Artigo não encontrado', 404);
+    }
+
+    if (article.authorId !== authorId) {
+        throw new AppError(
+            'Você não possui permissão para editar este artigo',
+            403,
+        );
+    }
+
+    return {
+        id: article.id,
+        title: article.title,
+        summary: article.summary,
+        content: article.content,
+
+        coverImageUrl: article.coverImageMimeType
+            ? `/api/articles/${article.id}/cover-image`
+            : null,
+
+        category: article.category,
+        tags: article.tags.map(({ tag }) => tag),
+
+        createdAt: article.createdAt,
+        updatedAt: article.updatedAt,
+    };
 }

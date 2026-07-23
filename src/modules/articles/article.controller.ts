@@ -18,6 +18,8 @@ import {
     updateArticleComment,
     deleteArticleComment,
     getMyArticles,
+    getArticles,
+    getArticleForEdit,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -222,7 +224,18 @@ export const getArticleDetailsController: RequestHandler = async (
     try {
         const articleId = Number(request.params.articleId);
 
-        const article = await getArticleDetails(articleId);
+        const authenticatedUserId = Number(
+            response.locals.userId,
+        );
+
+        const userId = Number.isInteger(authenticatedUserId)
+            ? authenticatedUserId
+            : undefined;
+
+        const article = await getArticleDetails(
+            articleId,
+            userId,
+        );
 
         return response.status(200).json({
             article,
@@ -336,7 +349,20 @@ export const getArticleCommentsController: RequestHandler = async (
     try {
         const articleId = Number(request.params.articleId);
 
-        const comments = await getArticleComments(articleId);
+        const authenticatedUserId = Number(
+            response.locals.userId,
+        );
+
+        const userId =
+            Number.isInteger(authenticatedUserId) &&
+                authenticatedUserId > 0
+                ? authenticatedUserId
+                : undefined;
+
+        const comments = await getArticleComments(
+            articleId,
+            userId,
+        );
 
         return response.status(200).json({
             comments,
@@ -437,6 +463,47 @@ export const getMyArticlesController: RequestHandler = async (
 
         return response.status(200).json({
             articles,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getArticlesController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const requestedPage = Number(request.query.page);
+        const page = Number.isInteger(requestedPage)
+            ? requestedPage
+            : 1;
+
+        const result = await getArticles(page);
+
+        return response.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getArticleForEditController: RequestHandler = async (
+    request,
+    response,
+    next,
+) => {
+    try {
+        const articleId = Number(request.params.articleId);
+        const authorId = Number(response.locals.userId);
+
+        const article = await getArticleForEdit(
+            articleId,
+            authorId,
+        );
+
+        return response.status(200).json({
+            article,
         });
     } catch (error) {
         next(error);
