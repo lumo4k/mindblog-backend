@@ -1315,3 +1315,60 @@ export async function deleteArticleComment(
         },
     });
 }
+
+export async function getMyArticles(userId: number) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError('Usuário inválido', 400);
+    }
+
+    const articles = await prisma.article.findMany({
+        where: {
+            authorId: userId,
+        },
+
+        orderBy: {
+            createdAt: 'desc',
+        },
+
+        select: {
+            id: true,
+            title: true,
+            summary: true,
+            viewCount: true,
+            coverImageMimeType: true,
+            createdAt: true,
+            updatedAt: true,
+
+            category: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    likes: true,
+                    comments: true,
+                },
+            },
+        },
+    });
+
+    return articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        summary: article.summary,
+        viewCount: article.viewCount,
+        likeCount: article._count.likes,
+        commentCount: article._count.comments,
+
+        coverImageUrl: article.coverImageMimeType
+            ? `/api/articles/${article.id}/cover-image`
+            : null,
+
+        category: article.category,
+        createdAt: article.createdAt,
+        updatedAt: article.updatedAt,
+    }));
+}

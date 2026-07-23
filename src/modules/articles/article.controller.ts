@@ -17,6 +17,7 @@ import {
     unlikeComment,
     updateArticleComment,
     deleteArticleComment,
+    getMyArticles,
 } from './article.service';
 
 function parseTags(value: unknown): string[] {
@@ -419,6 +420,24 @@ export const deleteArticleCommentController: RequestHandler = async (
         await deleteArticleComment(commentId, userId);
 
         return response.status(204).send();
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMyArticlesController: RequestHandler = async (
+    _request,
+    response,
+    next,
+) => {
+    try {
+        const userId = Number(response.locals.userId);
+
+        const articles = await getMyArticles(userId);
+
+        return response.status(200).json({
+            articles,
+        });
     } catch (error) {
         next(error);
     }

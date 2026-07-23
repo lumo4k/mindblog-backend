@@ -7,6 +7,7 @@ import {
     getUserProfileImageController,
     updateUserProfileController,
 } from './user.controller';
+import { getMyArticlesController } from '../articles/article.controller';
 
 export const userRouter = Router();
 
@@ -17,6 +18,12 @@ userRouter.patch(
     authenticate,
     uploadProfileImage.single('profileImage'),
     updateUserProfileController,
+);
+
+userRouter.get(
+    '/me/articles',
+    authenticate,
+    getMyArticlesController,
 );
 
 userRouter.get(
